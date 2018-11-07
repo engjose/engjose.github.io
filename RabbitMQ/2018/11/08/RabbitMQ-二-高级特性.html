@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    
+    <title>RabbitMQ&lt;二&gt;高级特性 | SUPER-JOSE-大叔的技术博客</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    
+        <meta name="keywords" content="RabbitMQ" />
+    
+    <meta name="description" content="如何保证消息100%投递什么是可靠性投递1.保证消息的成功发出2.保障MQ节点的成功接收3.保证发送端收到Broker(Server)的应答4.完善的消息补偿 生产端—消息可靠投递(一)1.消息落库,对消息进行打标(性能可能出现瓶颈)  2.消息的延迟投递,做二次确认, 回调检查(减少数据库操作)  消费端—幂等性保证消费端幂等,意味着,我们的消息永远不会被消费多次, 只能被消费一次 1.根据业务">
+<meta name="keywords" content="RabbitMQ">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RabbitMQ&lt;二&gt;高级特性">
+<meta property="og:url" content="http://www.fireworm.online/RabbitMQ/2018/11/08/RabbitMQ-二-高级特性.html">
+<meta property="og:site_name" content="SUPER-JOSE-大叔的技术博客">
+<meta property="og:description" content="如何保证消息100%投递什么是可靠性投递1.保证消息的成功发出2.保障MQ节点的成功接收3.保证发送端收到Broker(Server)的应答4.完善的消息补偿 生产端—消息可靠投递(一)1.消息落库,对消息进行打标(性能可能出现瓶颈)  2.消息的延迟投递,做二次确认, 回调检查(减少数据库操作)  消费端—幂等性保证消费端幂等,意味着,我们的消息永远不会被消费多次, 只能被消费一次 1.根据业务">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://phajzerxx.bkt.clouddn.com/RabbitMQ_log.jpg">
+<meta property="og:updated_time" content="2018-11-07T16:32:33.047Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="RabbitMQ&lt;二&gt;高级特性">
+<meta name="twitter:description" content="如何保证消息100%投递什么是可靠性投递1.保证消息的成功发出2.保障MQ节点的成功接收3.保证发送端收到Broker(Server)的应答4.完善的消息补偿 生产端—消息可靠投递(一)1.消息落库,对消息进行打标(性能可能出现瓶颈)  2.消息的延迟投递,做二次确认, 回调检查(减少数据库操作)  消费端—幂等性保证消费端幂等,意味着,我们的消息永远不会被消费多次, 只能被消费一次 1.根据业务">
+<meta name="twitter:image" content="http://phajzerxx.bkt.clouddn.com/RabbitMQ_log.jpg">
+    
+
+    
+        <link rel="alternate" href="/" title="SUPER-JOSE-大叔的技术博客" type="application/atom+xml" />
+    
+
+    
+
+    <link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/libs/titillium-web/styles.css">
+    <link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+    <link rel="stylesheet" href="/css/style.css">
+
+    <script src="/libs/jquery/2.0.3/jquery.min.js"></script>
+    
+    
+        <link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+    
+    
+        <link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+    
+    
+    
+
+</head>
+
+<body>
+    <div id="wrap">
+        <header id="header">
+    <div id="header-outer" class="outer">
+        <div class="container">
+            <div class="container-inner">
+                <div id="header-title">
+                    <h1 class="logo-wrap">
+                        <a href="/" class="logo"></a>
+                    </h1>
+                    
+                        <h2 class="subtitle-wrap">
+                            <p class="subtitle">There is no shortcut is a permanent shortcut</p>
+                        </h2>
+                    
+                </div>
+                <div id="header-inner" class="nav-container">
+                    <a id="main-nav-toggle" class="nav-icon fa fa-bars"></a>
+                    <div class="nav-container-inner">
+                        <ul id="main-nav">
+                            
+                                <li class="main-nav-list-item" >
+                                    <a class="main-nav-list-link" href="/">Home</a>
+                                </li>
+                            
+                                <li class="main-nav-list-item" >
+                                    <a class="main-nav-list-link" href="/categorys">Category</a>
+                                </li>
+                            
+                                <li class="main-nav-list-item" >
+                                    <a class="main-nav-list-link" href="/tags">Tag</a>
+                                </li>
+                            
+                                <li class="main-nav-list-item" >
+                                    <a class="main-nav-list-link" href="/">Archive</a>
+                                </li>
+                            
+                                <li class="main-nav-list-item" >
+                                    <a class="main-nav-list-link" href="/">About</a>
+                                </li>
+                            
+                        </ul>
+                        <nav id="sub-nav">
+                            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="搜索" />
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="想要查找什么..." />
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: '文章',
+            PAGES: '页面',
+            CATEGORIES: '分类',
+            TAGS: '标签',
+            UNTITLED: '(未命名)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+<script src="/js/insight.js"></script>
+
+</div>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+        <div class="container">
+            <div class="main-body container-inner">
+                <div class="main-body-inner">
+                    <section id="main">
+                        <div class="main-body-header">
+    <h1 class="header">
+    
+    <a class="page-title-link" href="/categories/RabbitMQ/">RabbitMQ</a>
+    </h1>
+</div>
+                        <div class="main-body-content">
+                            <article id="post-RabbitMQ-二-高级特性" class="article article-single article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+    
+        <h1 class="article-title" itemprop="name">
+        RabbitMQ&lt;二&gt;高级特性
+        </h1>
+    
+
+            </header>
+        
+        
+            <div class="article-meta">
+                
+    <div class="article-date">
+        <a href="/RabbitMQ/2018/11/08/RabbitMQ-二-高级特性.html" class="article-date">
+            <time datetime="2018-11-07T16:26:06.000Z" itemprop="datePublished">2018-11-08</time>
+        </a>
+    </div>
+
+                
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/RabbitMQ/">RabbitMQ</a>
+    </div>
+
+                <font color='#6638F0'>阅读数量:<span id="/RabbitMQ/2018/11/08/RabbitMQ-二-高级特性.html" class="leancloud_visitors" data-flag-title="RabbitMQ<二>高级特性"></span>次</font>
+            </div>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+            <h3 id="如何保证消息100-投递"><a href="#如何保证消息100-投递" class="headerlink" title="如何保证消息100%投递"></a>如何保证消息100%投递</h3><h4 id="什么是可靠性投递"><a href="#什么是可靠性投递" class="headerlink" title="什么是可靠性投递"></a>什么是可靠性投递</h4><p>1.保证消息的成功发出<br>2.保障MQ节点的成功接收<br>3.保证发送端收到Broker(Server)的应答<br>4.完善的消息补偿</p>
+<h4 id="生产端—消息可靠投递-一"><a href="#生产端—消息可靠投递-一" class="headerlink" title="生产端—消息可靠投递(一)"></a>生产端—消息可靠投递(一)</h4><p>1.消息落库,对消息进行打标(性能可能出现瓶颈)</p>
+<p><img src="http://phajzerxx.bkt.clouddn.com/%E6%B6%88%E6%81%AF%E5%8F%AF%E9%9D%A0%E6%8A%95%E9%80%921.jpg" width="400" hegiht="300" align="center"></p>
+<p>2.消息的延迟投递,做二次确认, 回调检查(减少数据库操作)</p>
+<p><img src="http://phajzerxx.bkt.clouddn.com/%E6%B6%88%E6%81%AF%E5%8F%AF%E9%9D%A0%E6%8A%95%E9%80%922.jpg" width="400" hegiht="300" align="center"></p>
+<h4 id="消费端—幂等性保证"><a href="#消费端—幂等性保证" class="headerlink" title="消费端—幂等性保证"></a>消费端—幂等性保证</h4><p>消费端幂等,意味着,我们的消息永远不会被消费多次, 只能被消费一次</p>
+<p>1.根据业务产生唯一ID,每次操作前在数据库查询,做幂等处理(高并发下有瓶颈),解决方案:根据ID进行分库分表,进行算法路由<br>2.使用Redis的幂等性</p>
+<h3 id="Confirm确认消息"><a href="#Confirm确认消息" class="headerlink" title="Confirm确认消息"></a>Confirm确认消息</h3><h4 id="RabbitMQ的Confirm机制"><a href="#RabbitMQ的Confirm机制" class="headerlink" title="RabbitMQ的Confirm机制"></a>RabbitMQ的Confirm机制</h4><p>1.消息确认是指生产者投递消息后,如果Broker接收到消息,则会给我们Broker一个应答<br>2.生产者接收到应答之后,用来确认这条消息是否正常的发送到Broker,这种机制也是消息可靠性投递的核心保障</p>
+<p><img src="http://phajzerxx.bkt.clouddn.com/confirm.jpg" width="400" hegiht="300" align="center"></p>
+<h4 id="如何开启Confirm模式"><a href="#如何开启Confirm模式" class="headerlink" title="如何开启Confirm模式"></a>如何开启Confirm模式</h4><p>1.在channel上开启确认模式: channel.confirmSelect();<br>2.在channel上添加监听addConfirmListener,添加成功和失败的返回结果,根据结果对消息进行后续处理</p>
+<p>生产端代码:<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.shiguang.training.mq.confirm;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> com.rabbitmq.client.Channel;</span><br><span class="line"><span class="keyword">import</span> com.rabbitmq.client.ConfirmListener;</span><br><span class="line"><span class="keyword">import</span> com.rabbitmq.client.Connection;</span><br><span class="line"><span class="keyword">import</span> com.shiguang.training.mq.MqFactory;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.io.IOException;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.TimeoutException;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> : JOSE 2018/11/4 10:31 PM</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Producer</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException, TimeoutException </span>&#123;</span><br><span class="line">        <span class="comment">// 获取channel</span></span><br><span class="line">        Connection connection = MqFactory.getConnection();</span><br><span class="line">        Channel channel = connection.createChannel();</span><br><span class="line">        channel.confirmSelect(); <span class="comment">//指定消息确认模式</span></span><br><span class="line"></span><br><span class="line">        String exchangeName = <span class="string">"test_confirm_exchange"</span>;</span><br><span class="line">        String routingKey = <span class="string">"confirm.save"</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 发送消息</span></span><br><span class="line">        String message = <span class="string">"Confirm RabbitMQ:"</span>;</span><br><span class="line">        channel.basicPublish(exchangeName, routingKey, <span class="keyword">null</span>, message.getBytes());</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 添加监听</span></span><br><span class="line">        channel.addConfirmListener(<span class="keyword">new</span> ConfirmListener() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleAck</span><span class="params">(<span class="keyword">long</span> deliveryTag, <span class="keyword">boolean</span> multiple)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">                System.out.println(<span class="string">"ACK"</span>);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleNack</span><span class="params">(<span class="keyword">long</span> deliveryTag, <span class="keyword">boolean</span> multiple)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">                System.out.println(<span class="string">"NO ACK"</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>消费端代码:<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.shiguang.training.mq.confirm;</span><br><span class="line"><span class="keyword">import</span> com.rabbitmq.client.Channel;</span><br><span class="line"><span class="keyword">import</span> com.rabbitmq.client.Connection;</span><br><span class="line"><span class="keyword">import</span> com.rabbitmq.client.QueueingConsumer;</span><br><span class="line"><span class="keyword">import</span> com.shiguang.training.mq.MqFactory;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.io.IOException;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.TimeoutException;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> : JOSE 2018/11/4 10:31 PM</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Consumer</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException, TimeoutException, InterruptedException </span>&#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 获取channel</span></span><br><span class="line">        Connection connection = MqFactory.getConnection();</span><br><span class="line">        Channel channel = connection.createChannel();</span><br><span class="line"></span><br><span class="line">        String routingKey = <span class="string">"confirm.#"</span>;</span><br><span class="line">        String exchangeName = <span class="string">"test_confirm_exchange"</span>;</span><br><span class="line">        String queueName = <span class="string">"test_confirm_queue"</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 声明</span></span><br><span class="line">        channel.exchangeDeclare(exchangeName, <span class="string">"topic"</span>, <span class="keyword">true</span>);</span><br><span class="line">        channel.queueDeclare(queueName, <span class="keyword">true</span>, <span class="keyword">false</span>, <span class="keyword">false</span>, <span class="keyword">null</span>);</span><br><span class="line">        channel.queueBind(queueName, exchangeName, routingKey);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 创建消费者</span></span><br><span class="line">        QueueingConsumer consumer = <span class="keyword">new</span> QueueingConsumer(channel);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 设置channel param1:队列名称 param2: 自动签收 param3:哪一个消费者</span></span><br><span class="line">        channel.basicConsume(queueName, <span class="keyword">true</span>, consumer);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 获取消息</span></span><br><span class="line">        <span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">            QueueingConsumer.Delivery delivery = consumer.nextDelivery();</span><br><span class="line">            <span class="keyword">byte</span>[] body = delivery.getBody();</span><br><span class="line">            System.out.println(<span class="string">"消费端:"</span> + <span class="keyword">new</span> String(body));</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>实验结果:<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">消费端:</span><br><span class="line">消费端:Confirm RabbitMQ:</span><br><span class="line"></span><br><span class="line">生产端:</span><br><span class="line">ACK</span><br></pre></td></tr></table></figure></p>
+<h4 id="Return消息机制"><a href="#Return消息机制" class="headerlink" title="Return消息机制"></a>Return消息机制</h4><p>1.Return Listener用于处理一些不可路由的消息<br>2.生产者通过指定一个Exchange &amp;&amp; RoutingKey,把消息送达到某一队列中,然后消费者监听队列,进行消费处理操作<br>3.但是有些时候,我们在发送消息的时候,当前的Exchange不存在,或者指定的RoutingKey找不到,这时候我们就需要监听这种不可达的消息,就叫他Return Listener</p>
+<p>怎么设置:<br>Mandatory:如果为true,则监听器会收到路由不可达的消息,进行后续处理;如果为false,那么broker会自动删除该消息;默认为false</p>
+<p><img src="http://phajzerxx.bkt.clouddn.com/return.jpg" width="400" hegiht="300" align="center"></p>
+<p>生产者:<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.shiguang.training.mq.returnmsg;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> com.rabbitmq.client.*;</span><br><span class="line"><span class="keyword">import</span> com.shiguang.training.mq.MqFactory;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.io.IOException;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.TimeoutException;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> : JOSE 2018/11/4 10:31 PM</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Producer</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException, TimeoutException </span>&#123;</span><br><span class="line">        <span class="comment">// 获取channel</span></span><br><span class="line">        Connection connection = MqFactory.getConnection();</span><br><span class="line">        Channel channel = connection.createChannel();</span><br><span class="line">        channel.confirmSelect(); <span class="comment">//指定消息确认模式</span></span><br><span class="line"></span><br><span class="line">        String exchangeName = <span class="string">"test_return_exchange"</span>;</span><br><span class="line">        String routingKey = <span class="string">"return.err"</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 发送消息</span></span><br><span class="line">        String message = <span class="string">"RETURN RabbitMQ:"</span>;</span><br><span class="line">        channel.basicPublish(exchangeName, routingKey, <span class="keyword">true</span>, <span class="keyword">null</span>, message.getBytes());</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 添加监听</span></span><br><span class="line">        channel.addReturnListener(<span class="keyword">new</span> ReturnListener() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleReturn</span><span class="params">(<span class="keyword">int</span> replyCode, String replyText, String exchange, String routingKey, AMQP.BasicProperties properties, <span class="keyword">byte</span>[] body)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">                System.out.println(<span class="string">"Return"</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>消费者:<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.shiguang.training.mq.returnmsg;</span><br><span class="line"><span class="keyword">import</span> com.rabbitmq.client.Channel;</span><br><span class="line"><span class="keyword">import</span> com.rabbitmq.client.Connection;</span><br><span class="line"><span class="keyword">import</span> com.rabbitmq.client.QueueingConsumer;</span><br><span class="line"><span class="keyword">import</span> com.shiguang.training.mq.MqFactory;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.io.IOException;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.TimeoutException;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> : JOSE 2018/11/4 10:31 PM</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Consumer</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException, TimeoutException, InterruptedException </span>&#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 获取channel</span></span><br><span class="line">        Connection connection = MqFactory.getConnection();</span><br><span class="line">        Channel channel = connection.createChannel();</span><br><span class="line"></span><br><span class="line">        String routingKey = <span class="string">"confirm.#"</span>;</span><br><span class="line">        String exchangeName = <span class="string">"test_return_exchange"</span>;</span><br><span class="line">        String queueName = <span class="string">"test_return_queue"</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 声明</span></span><br><span class="line">        channel.exchangeDeclare(exchangeName, <span class="string">"topic"</span>, <span class="keyword">true</span>);</span><br><span class="line">        channel.queueDeclare(queueName, <span class="keyword">true</span>, <span class="keyword">false</span>, <span class="keyword">false</span>, <span class="keyword">null</span>);</span><br><span class="line">        channel.queueBind(queueName, exchangeName, routingKey);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 创建消费者</span></span><br><span class="line">        QueueingConsumer consumer = <span class="keyword">new</span> QueueingConsumer(channel);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 设置channel param1:队列名称 param2: 自动签收 param3:哪一个消费者</span></span><br><span class="line">        channel.basicConsume(queueName, <span class="keyword">true</span>, consumer);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 获取消息</span></span><br><span class="line">        <span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">            QueueingConsumer.Delivery delivery = consumer.nextDelivery();</span><br><span class="line">            <span class="keyword">byte</span>[] body = delivery.getBody();</span><br><span class="line">            System.out.println(<span class="string">"消费端:"</span> + <span class="keyword">new</span> String(body));</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>实验结果:<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">生产者Return监听器:</span><br><span class="line">Return</span><br></pre></td></tr></table></figure></p>
+<h3 id="消费端自定义监听"><a href="#消费端自定义监听" class="headerlink" title="消费端自定义监听"></a>消费端自定义监听</h3><p>之前消费者的监听都是在while循环中, 这种方式肯定不好,接下来我们就使用自定义消息监听机制, 只需要继承DefaultConsumer 就可以</p>
+<p>生产者代码如上:</p>
+<p>消费者:<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> : JOSE 2018/11/4 10:31 PM</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Consumer</span> <span class="keyword">extends</span> <span class="title">DefaultConsumer</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Constructs a new instance and records its association to the passed-in channel.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> channel the channel to which this consumer is attached</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">Consumer</span><span class="params">(Channel channel)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">super</span>(channel);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleDelivery</span><span class="params">(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, <span class="keyword">byte</span>[] body)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">        System.out.println(<span class="string">"--------------------自动监听消息--------------------"</span>);</span><br><span class="line">        System.out.println(<span class="string">"consumerTag="</span> + consumerTag);</span><br><span class="line">        System.out.println(<span class="string">"envelope"</span> + envelope);</span><br><span class="line">        System.out.println(<span class="string">"properties"</span> + properties);</span><br><span class="line">        System.out.println(<span class="string">"body"</span> + <span class="keyword">new</span> String(body));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException, TimeoutException, InterruptedException </span>&#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 获取channel</span></span><br><span class="line">        Connection connection = MqFactory.getConnection();</span><br><span class="line">        Channel channel = connection.createChannel();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 声明一个队列 param1:队列名称 param2:是否持久化 param3:是否独占 param4:是否自动删除 param5:扩展参数</span></span><br><span class="line">        String queueName = <span class="string">"test001"</span>;</span><br><span class="line">        channel.queueDeclare(queueName, <span class="keyword">true</span>, <span class="keyword">false</span>, <span class="keyword">false</span>, <span class="keyword">null</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 设置channel param1:队列名称 param2: 自动签收 param3:哪一个消费者</span></span><br><span class="line">        channel.basicConsume(queueName, <span class="keyword">true</span>, <span class="keyword">new</span> Consumer(channel));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>实验结果:<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">消费端:</span><br><span class="line">--------------------自动监听消息--------------------</span><br><span class="line">consumerTag=amq.ctag-24JkfRzCEXNxeNLZINtZCQ</span><br><span class="line">envelopeEnvelope(deliveryTag=1, redeliver=<span class="literal">false</span>, exchange=, routingKey=test001)</span><br><span class="line">properties<span class="comment">#contentHeader&lt;basic&gt;(content-type=null, content-encoding=null, headers=null, delivery-mode=null, priority=null, correlation-id=null, reply-to=null, expiration=null, message-id=null, timestamp=null, type=null, user-id=null, app-id=null, cluster-id=null)</span></span><br><span class="line">bodyHELLO RabbitMQ:0</span><br></pre></td></tr></table></figure></p>
+<h3 id="消费端如何限流"><a href="#消费端如何限流" class="headerlink" title="消费端如何限流"></a>消费端如何限流</h3><p>1.RabbitMQ提供了一种qos(服务质量保证)功能,在非自动确认的前提下,如果有一定数目的消息(通过consumer || channel设置)未被确认前, 不进行消费新的消息; autoAck一定要设置未false<br>2.在消费端需要设置自动签收为false<br>3.在消费端设置Qos: channel.basicQos(0, 1, false) 三个参数含义: param1-&gt;0不限制消息大小,通常为0, param2-&gt;1表示一条一条的接收消息, param3-&gt;false表示此设置被应用与channel,实在consumer上<br>4.在收到消息消费后,需要手动应答:channel.basicAck(deliverayTag, false) ,param1:消息Tag, param2-&gt;不使用自动签收</p>
+<p>消费者:<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Consumer</span> <span class="keyword">extends</span> <span class="title">DefaultConsumer</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Channel channel;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Constructs a new instance and records its association to the passed-in channel.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> channel the channel to which this consumer is attached</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">Consumer</span><span class="params">(Channel channel)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">super</span>(channel);</span><br><span class="line">        <span class="keyword">this</span>.channel = channel;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleDelivery</span><span class="params">(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, <span class="keyword">byte</span>[] body)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">        System.out.println(<span class="string">"--------------------自动监听消息--------------------"</span>);</span><br><span class="line">        System.out.println(<span class="string">"consumerTag="</span> + consumerTag);</span><br><span class="line">        System.out.println(<span class="string">"envelope"</span> + envelope);</span><br><span class="line">        System.out.println(<span class="string">"body"</span> + <span class="keyword">new</span> String(body));</span><br><span class="line">        System.out.println(<span class="string">"properties"</span> + properties);</span><br><span class="line"></span><br><span class="line">		<span class="comment">//手动回复</span></span><br><span class="line">        channel.basicAck(envelope.getDeliveryTag(), <span class="keyword">false</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException, TimeoutException, InterruptedException </span>&#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 获取channel</span></span><br><span class="line">        Connection connection = MqFactory.getConnection();</span><br><span class="line">        Channel channel = connection.createChannel();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 声明</span></span><br><span class="line">        String queueName = <span class="string">"test001"</span>;</span><br><span class="line">        String exChangeName = <span class="string">"msg.limit.ex"</span>;</span><br><span class="line">        String routingKey = <span class="string">"limit.#"</span>;</span><br><span class="line">        channel.exchangeDeclare(exChangeName, <span class="string">"topic"</span>);</span><br><span class="line">        channel.queueDeclare(queueName, <span class="keyword">true</span>, <span class="keyword">false</span>, <span class="keyword">false</span>, <span class="keyword">null</span>);</span><br><span class="line">        channel.queueBind(queueName, exChangeName, routingKey);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//设置Qos param1不限制大小, param2一条一条消费 3.不作用channel</span></span><br><span class="line">        channel.basicQos(<span class="number">0</span>, <span class="number">1</span>, <span class="keyword">false</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 设置channel param1:队列名称 param2: 自动签收 param3:哪一个消费者</span></span><br><span class="line">        channel.basicConsume(queueName, <span class="keyword">false</span>, <span class="keyword">new</span> Consumer(channel));</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<h3 id="消费端ACK与重回队列"><a href="#消费端ACK与重回队列" class="headerlink" title="消费端ACK与重回队列"></a>消费端ACK与重回队列</h3><p>1.消费端进行消费的时候,如果由于业务异常,我们可以进行日志的记录,然后进行补偿,手动NACK<br>2.由于服务器等宕机,我们就需要手工ACK确保消息消费成功</p>
+<p>消费端的重回队列:<br>1.对没有处理成功的消息,把消息重新投递给Broker<br>2.在实际的场景中一般都会关闭重回队列, 也就是设置为False</p>
+<h3 id="TTL消息-队列"><a href="#TTL消息-队列" class="headerlink" title="TTL消息/队列"></a>TTL消息/队列</h3><p>1.Time To Live,也就是生存时间<br>2.RabbitMQ支持消息的过期时间, 在发消息的时候可以指定,在头信息中指定<br>3.也支持入队列的时间,从消息入队列开始计算,只要超过了队列的超时时间设置,那么消息就会被删除</p>
+<h3 id="死信队列DLX-Dead-Letter-Exchange"><a href="#死信队列DLX-Dead-Letter-Exchange" class="headerlink" title="死信队列DLX: Dead-Letter-Exchange"></a>死信队列DLX: Dead-Letter-Exchange</h3><p>1.当消息在一个队列中变成死信,没有消费者,他可以被重新publish到另外的一个Exchange,这个Exchange就叫做死信队列<br>2.DLX也是一个正常的Exchange,和一般的Exchange没有区别,他能在任何的队列上指定,当设置设置某个队列的属性时,当这个队列上有死信时,RabbitMQ就会自动将这个消息重新发布到死信队列</p>
+<p>产生条件:<br>1.消息被拒绝:(basic.reject/ basic.nack), 并且requeue=false(不进行重回队列)<br>2.消息TTL过期<br>3.队列达到最大长度</p>
+<p>死信队列的设置:<br>1.首先需要设置死信队列的Exchange &amp;&amp; queue<br>2.Exchange: dlx.exchange<br>2.Queue:dlx.queue<br>3.RoutingKey:#<br>4.设置正常的Queue, Exchange, RoutingKey, 只不过在队列上添加arguments.put(‘x-dead-letter-exchange’, ‘dlx.exchange’)</p>
+
+        </div>
+        <footer class="article-footer">
+            
+
+    <div class="bdsharebuttonbox">
+    <a href="#" class="bds_more" data-cmd="more">分享到：</a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间">QQ空间</a>
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博">新浪微博</a>
+    <a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博">腾讯微博</a>
+    <a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网">人人网</a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信">微信</a>
+</div>
+<script>
+window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMiniList":false,"bdPic":"","bdStyle":"0","bdSize":"16"},"share":{"bdSize":16}};with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+<style>
+    .bdshare_popup_box {
+        border-radius: 4px;
+        border: #e1e1e1 solid 1px;
+    }
+    .bdshare-button-style0-16 a,
+    .bdshare-button-style0-16 .bds_more {
+        padding-left: 20px;
+        margin: 6px 10px 6px 0;
+    }
+    .bdshare_dialog_list a,
+    .bdshare_popup_list a,
+    .bdshare_popup_bottom a {
+        font-family: 'Microsoft Yahei';
+    }
+    .bdshare_popup_top {
+        display: none;
+    }
+    .bdshare_popup_bottom {
+        height: auto;
+        padding: 5px;
+    }
+</style>
+
+
+
+        </footer>
+    </div>
+</article>
+<!-- 来必力City版安装代码 -->
+<div id="lv-container" data-id="city" data-uid="MTAyMC80MDgxMS8xNzMzNg==">
+	<script type="text/javascript">
+   (function(d, s) {
+       var j, e = d.getElementsByTagName(s)[0];
+
+       if (typeof LivereTower === 'function') { return; }
+
+       j = d.createElement(s);
+       j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+       j.async = true;
+
+       e.parentNode.insertBefore(j, e);
+   })(document, 'script');
+	</script>
+<noscript> 为正常使用来必力评论功能请激活JavaScript</noscript>
+</div>
+<!-- City版安装代码已完成 -->
+
+
+                        </div>
+                    </section>
+                    <aside id="sidebar">
+    <a class="sidebar-toggle" title="Expand Sidebar"><i class="toggle icon"></i></a>
+    <div class="sidebar-top">
+        <p>FOLLOW:</p>
+        <ul class="social-links">
+            
+                
+                <li>
+                    <a class="social-tooltip" title="email" href="/panyuanyuan1024@163.com" target="_blank">
+                        <i class="icon fa fa-email"></i>
+                    </a>
+                </li>
+                
+            
+                
+                <li>
+                    <a class="social-tooltip" title="facebook" href="/" target="_blank">
+                        <i class="icon fa fa-facebook"></i>
+                    </a>
+                </li>
+                
+            
+                
+                <li>
+                    <a class="social-tooltip" title="google-plus" href="/" target="_blank">
+                        <i class="icon fa fa-google-plus"></i>
+                    </a>
+                </li>
+                
+            
+                
+                <li>
+                    <a class="social-tooltip" title="github" href="https://github.com/engjose" target="_blank">
+                        <i class="icon fa fa-github"></i>
+                    </a>
+                </li>
+                
+            
+                
+            
+                
+                <li>
+                    <a class="social-tooltip" title="rss" href="/" target="_blank">
+                        <i class="icon fa fa-rss"></i>
+                    </a>
+                </li>
+                
+            
+        </ul>
+    </div>
+    
+        
+<nav id="article-nav">
+    
+    
+        <a href="/RabbitMQ/2018/11/05/RabbitMQ-一-初识.html" id="article-nav-older" class="article-nav-link-wrap">
+        <strong class="article-nav-caption">上一篇</strong>
+        <p class="article-nav-title">RabbitMQ&lt;一&gt;基本概念 &amp;&amp; 环境安装</p>
+        <i class="icon fa fa-chevron-left" id="icon-chevron-left"></i>
+        </a>
+    
+</nav>
+
+    
+    <div class="widgets-container">
+        
+            
+                
+    <div class="widget-wrap">
+        <h3 class="widget-title">最新文章</h3>
+        <div class="widget">
+            <ul id="recent-post" class="">
+                
+                    <li>
+                        
+                        <div class="item-thumbnail">
+                            <a href="/RabbitMQ/2018/11/08/RabbitMQ-二-高级特性.html" class="thumbnail">
+    
+    
+        <span style="background-image:url(http://phajzerxx.bkt.clouddn.com/RabbitMQ_log.jpg)" alt="RabbitMQ&lt;二&gt;高级特性" class="thumbnail-image"></span>
+    
+    
+</a>
+
+                        </div>
+                        
+                        <div class="item-inner">
+                            <p class="item-category"><a class="article-category-link" href="/categories/RabbitMQ/">RabbitMQ</a></p>
+                            <p class="item-title"><a href="/RabbitMQ/2018/11/08/RabbitMQ-二-高级特性.html" class="title">RabbitMQ&lt;二&gt;高级特性</a></p>
+                            <p class="item-date"><time datetime="2018-11-07T16:26:06.000Z" itemprop="datePublished">2018-11-08</time></p>
+                        </div>
+                    </li>
+                
+                    <li>
+                        
+                        <div class="item-thumbnail">
+                            <a href="/RabbitMQ/2018/11/05/RabbitMQ-一-初识.html" class="thumbnail">
+    
+    
+        <span style="background-image:url(http://phajzerxx.bkt.clouddn.com/RabbitMQ_log.jpg)" alt="RabbitMQ&lt;一&gt;基本概念 &amp;&amp; 环境安装" class="thumbnail-image"></span>
+    
+    
+</a>
+
+                        </div>
+                        
+                        <div class="item-inner">
+                            <p class="item-category"><a class="article-category-link" href="/categories/RabbitMQ/">RabbitMQ</a></p>
+                            <p class="item-title"><a href="/RabbitMQ/2018/11/05/RabbitMQ-一-初识.html" class="title">RabbitMQ&lt;一&gt;基本概念 &amp;&amp; 环境安装</a></p>
+                            <p class="item-date"><time datetime="2018-11-05T14:32:38.000Z" itemprop="datePublished">2018-11-05</time></p>
+                        </div>
+                    </li>
+                
+                    <li>
+                        
+                        <div class="item-thumbnail">
+                            <a href="/JVM/2018/10/28/JVM-一-JAVA内存结构.html" class="thumbnail">
+    
+    
+        <span style="background-image:url(http://phajzerxx.bkt.clouddn.com/JVMLOG.jpg)" alt="JVM(一)---JAVA内存结构" class="thumbnail-image"></span>
+    
+    
+</a>
+
+                        </div>
+                        
+                        <div class="item-inner">
+                            <p class="item-category"><a class="article-category-link" href="/categories/JVM/">JVM</a></p>
+                            <p class="item-title"><a href="/JVM/2018/10/28/JVM-一-JAVA内存结构.html" class="title">JVM(一)---JAVA内存结构</a></p>
+                            <p class="item-date"><time datetime="2018-10-28T05:40:10.000Z" itemprop="datePublished">2018-10-28</time></p>
+                        </div>
+                    </li>
+                
+            </ul>
+        </div>
+    </div>
+
+            
+                
+    <div class="widget-wrap widget-list">
+        <h3 class="widget-title">分类</h3>
+        <div class="widget">
+            <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/JVM/">JVM</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/RabbitMQ/">RabbitMQ</a><span class="category-list-count">2</span></li></ul>
+        </div>
+    </div>
+
+
+            
+                
+    <div class="widget-wrap widget-list">
+        <h3 class="widget-title">归档</h3>
+        <div class="widget">
+            <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">十一月 2018</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">十月 2018</a><span class="archive-list-count">1</span></li></ul>
+        </div>
+    </div>
+
+
+            
+                
+    <div class="widget-wrap widget-list">
+        <h3 class="widget-title">标签</h3>
+        <div class="widget">
+            <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/JVM/">JVM</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/RabbitMQ/">RabbitMQ</a><span class="tag-list-count">2</span></li></ul>
+        </div>
+    </div>
+
+
+            
+                
+    <div class="widget-wrap widget-float">
+        <h3 class="widget-title">标签云</h3>
+        <div class="widget tagcloud">
+            <a href="/tags/JVM/" style="font-size: 10px;">JVM</a> <a href="/tags/RabbitMQ/" style="font-size: 20px;">RabbitMQ</a>
+        </div>
+    </div>
+
+
+            
+                
+    <div class="widget-wrap widget-list">
+        <h3 class="widget-title">链接</h3>
+        <div class="widget">
+            <ul>
+                
+                    <li>
+                        <a href="https://github.com/engjose">GitHub</a>
+                    </li>
+                
+            </ul>
+        </div>
+    </div>
+
+
+            
+        
+    </div>
+</aside>
+                </div>
+            </div>
+        </div>
+        <footer id="footer">
+    <div class="container">
+        <div class="container-inner">
+            <a id="back-to-top" href="javascript:;"><i class="icon fa fa-angle-up"></i></a>
+            <div class="credit">
+                <h1 class="logo-wrap">
+                    <a href="/" class="logo"></a>
+                </h1>
+                <p>&copy; 2018 SUPER-JOSE</p>
+                <p>Powered by <a href="//hexo.io/" target="_blank">Hexo</a>. Theme by <a href="//github.com/ppoffice" target="_blank">PPOffice</a></p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="//cdn1.lncld.net/static/js/2.5.0/av-min.js"></script>
+<script>
+    var APP_ID = 'lL6lh4H55WDpAYHr7gv8HvNQ-gzGzoHsz';
+    var APP_KEY = 'jy6kT5iYdFv9e1x3OnJyVUeI';
+    AV.init({
+        appId: APP_ID,
+        appKey: APP_KEY
+    });
+    // 显示次数
+    function showTime(Counter) {
+        var query = new AV.Query("Counter");
+        if($(".leancloud_visitors").length > 0){
+            var url = $(".leancloud_visitors").attr('id').trim();
+            // where field
+            query.equalTo("words", url);
+            // count
+            query.count().then(function (number) {
+                // There are number instances of MyClass where words equals url.
+                $(document.getElementById(url)).text(number?  number : '--');
+            }, function (error) {
+                // error is an instance of AVError.
+            });
+        }
+    }
+    // 追加pv
+    function addCount(Counter) {
+        var url = $(".leancloud_visitors").length > 0 ? $(".leancloud_visitors").attr('id').trim() : 'icafebolger.com';
+        var Counter = AV.Object.extend("Counter");
+        var query = new Counter;
+        query.save({
+            words: url
+        }).then(function (object) {
+        })
+    }
+    $(function () {
+        var Counter = AV.Object.extend("Counter");
+        addCount(Counter);
+        showTime(Counter);
+    });
+</script>
+
+        
+    
+    <script>
+    var disqus_shortname = 'hexo-theme-hueman';
+    
+    
+    var disqus_url = 'http://www.fireworm.online/RabbitMQ/2018/11/08/RabbitMQ-二-高级特性.html';
+    
+    (function() {
+    var dsq = document.createElement('script');
+    dsq.type = 'text/javascript';
+    dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+    </script>
+
+
+
+
+    
+        <script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-share.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-video.min.js"></script>
+    
+    
+        <script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+    
+    
+
+
+<!-- Custom Scripts -->
+<script src="/js/main.js"></script>
+
+    </div>
+</body>
+</html>
